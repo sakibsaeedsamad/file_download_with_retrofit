@@ -11,4 +11,7 @@ interface Api {
     @POST("NoticeDownloadS")
     fun getFileType(@Field("id") id: String?): retrofit2.Call<ResponseBody>
 
+    @Streaming
+    @GET("App")
+    fun getApkFile(): retrofit2.Call<ResponseBody>
 }

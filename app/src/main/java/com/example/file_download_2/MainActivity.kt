@@ -2,9 +2,7 @@ package com.example.file_download_2
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -12,7 +10,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.Headers
@@ -20,7 +17,6 @@ import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import android.app.DownloadManager
 import android.os.StrictMode
 import java.io.*
 import com.example.file_download_2.new.Api
@@ -39,6 +35,10 @@ class MainActivity : AppCompatActivity() {
 
         button.setOnClickListener {
             downloadFile()
+        }
+
+        apkButton.setOnClickListener {
+            downloadApkFile()
         }
 
 
@@ -71,7 +71,86 @@ class MainActivity : AppCompatActivity() {
                     // get header value
                     val fileName: String = headers["File-Name"].toString()
 
-                    Log.d("File-Name", "onResponse: $fileName ")
+                    val mimeType: String = headers["Content-Type"].toString()
+
+                    Log.d("File-Name", "File-Name: $fileName ")
+                    Log.d("Content-Type", "Content-Type: $mimeType ")
+                    val folder = application?.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+
+                    val file = File(folder, fileName)
+                    val writtenToDisk = writeResponseBodyToDisk(response.body()!!, file)
+                    Log.d("File download was a success? ", writtenToDisk.toString())
+
+
+                    if(writtenToDisk == true) {
+                        val uri = application?.let {
+                            FileProvider.getUriForFile(it, "com.example.file_download_2", file)
+
+                        }
+
+
+                        viewFile(uri!!);
+                    }
+
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody?>, t: Throwable) {}
+        })
+    }
+
+
+    fun installFile(uri: Uri,mimeType: String){
+
+        application?.let { context ->
+
+
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    val install = Intent(Intent.ACTION_VIEW)
+                    install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    install.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    install.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                    install.data = uri
+                    val chooser = Intent.createChooser(install, "Open with")
+
+                    if (install.resolveActivity(context.packageManager) != null) {
+                        startActivity(chooser)
+                    } else {
+                        Toast.makeText(context, "No suitable application to open file", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    val install = Intent(Intent.ACTION_VIEW)
+                    install.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    install.setDataAndType(uri, mimeType)
+                    val chooser = Intent.createChooser(install, "Open with")
+
+                    if (install.resolveActivity(context.packageManager) != null) {
+                        startActivity(chooser)
+                    } else {
+                        Toast.makeText(context, "No suitable application to open file", Toast.LENGTH_LONG).show()
+                    }
+                }
+
+
+        }
+    }
+
+    private fun downloadApkFile() {
+        val apiInterface: Api = ApiService.createService(Api::class.java)
+        val call: Call<ResponseBody> = apiInterface.getApkFile()
+        call.enqueue(object : Callback<ResponseBody?> {
+            @SuppressLint("LongLogTag")
+            override fun onResponse(call: Call<ResponseBody?>, response: Response<ResponseBody?>) {
+                if (response.isSuccessful) {
+
+                    val headers: Headers = response.headers()
+                    // get header value
+                    val fileName: String = headers["File-Name"].toString()
+                    val mimeType: String = headers["Content-Type"].toString()
+
+                    Log.d("File-Name", "File-Name: $fileName ")
+                    Log.d("Content-Type", "Content-Type: $mimeType ")
                     val folder = application?.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
 
                     val file = File(folder, fileName)
@@ -83,7 +162,7 @@ class MainActivity : AppCompatActivity() {
                             FileProvider.getUriForFile(it, "com.example.file_download_2", file)
                         }
 
-                        viewFile(uri!!);
+                        installFile(uri!!,mimeType,)
                     }
 
                 }
